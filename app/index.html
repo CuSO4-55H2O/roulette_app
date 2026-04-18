@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>轮盘对决 Web版</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        /* 登录面板 */
+        #login-panel { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        #login-panel input { padding: 10px; margin: 5px; width: 200px; border: 1px solid #ccc; border-radius: 4px; }
+        #login-panel button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        /* 聊天面板 */
+        #chat-panel { display: none; display: flex; flex-direction: column; gap: 15px; }
+        .boxes-wrapper { display: flex; gap: 15px; height: 500px; }
+        .chat-box { flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .chat-header { background: #333; color: white; padding: 10px; border-top-left-radius: 8px; border-top-right-radius: 8px; text-align: center; font-weight: bold; }
+        .chat-header.private { background: #5a2e8c; }
+        .chat-content { flex: 1; padding: 15px; overflow-y: auto; white-space: pre-wrap; font-size: 14px; line-height: 1.5; border-bottom: 1px solid #eee; }
+        .input-area { padding: 10px; display: flex; gap: 10px; background: #fff; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+        .input-area input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .input-area button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="login-panel">
+        <h2>加入游戏房间</h2>
+        <input type="number" id="group_id" placeholder="房间号 (Group ID)" value="1001"><br>
+        <input type="number" id="user_id" placeholder="你的 QQ/User ID"><br>
+        <input type="text" id="nickname" placeholder="游戏昵称"><br>
+        <button onclick="connect()">进入房间</button>
+    </div>
+
+    <div id="chat-panel" style="display: none;">
+        <div class="boxes-wrapper">
+            <div class="chat-box">
+                <div class="chat-header">群聊信息 (公开)</div>
+                <div id="public-chat" class="chat-content"></div>
+                <div class="input-area">
+                    <input type="text" id="message-input" placeholder="输入指令 (如: 加入轮盘, 开始轮盘, 向对手开枪)" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+
+            <div class="chat-box">
+                <div class="chat-header private">私聊信息 (仅你可见)</div>
+                <div id="private-chat" class="chat-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ws;
+
+    function connect() {
+        const groupId = document.getElementById("group_id").value;
+        const userId = document.getElementById("user_id").value;
+        const nickname = document.getElementById("nickname").value;
+
+        if (!groupId || !userId || !nickname) {
+            alert("请完整填写信息！");
+            return;
+        }
+
+        // 切换 UI
+        document.getElementById("login-panel").style.display = "none";
+        document.getElementById("chat-panel").style.display = "flex";
+
+        // 建立 WebSocket 连接
+        const wsUrl = `ws://${window.location.host}/ws/${groupId}/${userId}/${encodeURIComponent(nickname)}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === "public") {
+                appendMessage("public-chat", data.content);
+            } else if (data.type === "private") {
+                appendMessage("private-chat", data.content);
+            }
+        };
+
+        ws.onclose = function() {
+            appendMessage("public-chat", "【系统提示】与服务器连接已断开。");
+        };
+    }
+
+    function sendMessage() {
+        const input = document.getElementById("message-input");
+        const msg = input.value.trim();
+        if (msg && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(msg);
+            input.value = "";
+        }
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+
+    function appendMessage(containerId, text) {
+        const container = document.getElementById(containerId);
+        const msgDiv = document.createElement("div");
+        msgDiv.textContent = text;
+        msgDiv.style.marginBottom = "10px";
+        container.appendChild(msgDiv);
+        // 自动滚动到底部
+        container.scrollTop = container.scrollHeight;
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: roulette_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    env_file:
+      - .env
+    build: .
+    container_name: roulette_app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # 这些环境变量会被 peewee 读取
+      MYSQL_HOST: db                # 关键：指向 db 服务
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app   # 开发时热更新，生产环境可注释
+
+volumes:
+  mysql_data:
